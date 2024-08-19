@@ -1,6 +1,7 @@
 import re
 import sys
 import random  # Import the random module for RANDOM command
+import math
 
 
 def tokenize(line):
@@ -8,7 +9,7 @@ def tokenize(line):
     line = re.sub(r'//.*', '', line)
 
     token_specification = [
-        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM)\b'),
+        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM|CLEAR|CEILING|FLOOR|ABS|SQRT)\b'),
         # Updated keywords
         ('STRING', r'"[^"]*"'),  # String literals
         ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integer or floating-point numbers
@@ -70,8 +71,44 @@ def parse_and_execute(tokens):
         value1 = resolve_value(operand1)
         value2 = resolve_value(operand2)
         if isinstance(value1, str) or isinstance(value2, str):
-            raise TypeError("Cannot perform addition with string values.")
+            raise TypeError("Cannot perform addition on string values.")
         result = value1 + value2
+        memory[result_identifier] = result
+
+    elif command == 'SQRT':
+        operand1 = tokens[1][1]
+        result_identifier = tokens[2][1]
+        value1 = resolve_value(operand1)
+        if isinstance(value1, str):
+            raise TypeError("Cannot perform sqrts on string values.")
+        result = math.sqrt(value1)
+        memory[result_identifier] = result
+
+    elif command == 'ABS':
+        operand1 = tokens[1][1]
+        result_identifier = tokens[2][1]
+        value1 = resolve_value(operand1)
+        if isinstance(value1, str):
+            raise TypeError("Cannot perform abs on string values.")
+        result = abs(value1)
+        memory[result_identifier] = result
+
+    elif command == 'FLOOR':
+        operand1 = tokens[1][1]
+        result_identifier = tokens[2][1]
+        value1 = resolve_value(operand1)
+        if isinstance(value1, str):
+            raise TypeError("Cannot perform floors on string values.")
+        result = math.floor(value1)
+        memory[result_identifier] = result
+
+    elif command == 'CEILING':
+        operand1 = tokens[1][1]
+        result_identifier = tokens[2][1]
+        value1 = resolve_value(operand1)
+        if isinstance(value1, str):
+            raise TypeError("Cannot perform ceilings on string values.")
+        result = math.ceil(value1)
         memory[result_identifier] = result
 
     elif command == 'SUBTRACT':
@@ -169,6 +206,9 @@ def parse_and_execute(tokens):
         result = random.uniform(min_value, max_value)  # Generates a float in the range [min, max)
         memory[result_identifier] = result
 
+    elif command == 'CLEAR':
+        memory.clear()
+
 
 # Function to run code from a file
 def run_code_from_file(filename):
@@ -196,7 +236,6 @@ if __name__ == '__main__':
         run_code_from_file(script_file)
     else:
         # Example usage with embedded code
-        code = """
-        
-        """
-        run_code(code)
+        while True:
+            code = input(">>> ")
+            run_code(code)
