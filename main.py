@@ -1,5 +1,6 @@
 import re
-import sys  # To read from command-line arguments
+import sys
+import random  # Import the random module for RANDOM command
 
 
 def tokenize(line):
@@ -7,8 +8,8 @@ def tokenize(line):
     line = re.sub(r'//.*', '', line)
 
     token_specification = [
-        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER)\b'),
-        # Added all keywords
+        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM)\b'),
+        # Updated keywords
         ('STRING', r'"[^"]*"'),  # String literals
         ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integer or floating-point numbers
         ('IDENTIFIER', r'\b[a-zA-Z_]\w*\b'),  # Identifiers
@@ -154,6 +155,20 @@ def parse_and_execute(tokens):
         result_identifier = tokens[2][1]
         memory[result_identifier] = float(memory.get(identifier, 0))
 
+    elif command == 'RANDOM':
+        min_value = resolve_value(tokens[1][1])
+        max_value = resolve_value(tokens[2][1])
+        result_identifier = tokens[3][1]
+
+        if not (isinstance(min_value, (int, float)) and isinstance(max_value, (int, float))):
+            raise ValueError("RANDOM min and max values must be numbers.")
+
+        if min_value > max_value:
+            raise ValueError("RANDOM min value must not be greater than max value.")
+
+        result = random.uniform(min_value, max_value)  # Generates a float in the range [min, max)
+        memory[result_identifier] = result
+
 
 # Function to run code from a file
 def run_code_from_file(filename):
@@ -182,6 +197,6 @@ if __name__ == '__main__':
     else:
         # Example usage with embedded code
         code = """
-
+        
         """
         run_code(code)
