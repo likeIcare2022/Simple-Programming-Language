@@ -1,4 +1,5 @@
 import re
+import sys  # To read from command-line arguments
 
 
 def tokenize(line):
@@ -6,7 +7,8 @@ def tokenize(line):
     line = re.sub(r'//.*', '', line)
 
     token_specification = [
-        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|TONUMBER|TOSTRING|INPUT)\b'),  # Added math operations
+        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER)\b'),
+        # Added all keywords
         ('STRING', r'"[^"]*"'),  # String literals
         ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integer or floating-point numbers
         ('IDENTIFIER', r'\b[a-zA-Z_]\w*\b'),  # Identifiers
@@ -35,8 +37,18 @@ def tokenize(line):
     return tokens
 
 
-# Step 2: Parsing and execution function
+# Memory storage
 memory = {}
+
+
+def resolve_value(value):
+    """ Resolve a value which can be a literal or an identifier. """
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1]  # Remove surrounding quotes and return as string
+    try:
+        return float(value)  # Try converting to a number
+    except ValueError:
+        return memory.get(value, 0)  # Return the value from memory if not a number
 
 
 def parse_and_execute(tokens):
@@ -44,14 +56,6 @@ def parse_and_execute(tokens):
         return
 
     command = tokens[0][1]
-
-    def resolve_value(value):
-        """ Resolve a value which can be a literal or an identifier. """
-        if value.startswith('"') and value.endswith('"'):
-            return value[1:-1]  # Remove surrounding quotes and return as string
-        if value.isdigit() or (value[0] == '-' and value[1:].isdigit()):
-            return float(value)  # Convert numeric literals to float
-        return memory.get(value, 0)  # Default to 0 if identifier not found
 
     if command == 'LOAD':
         value = tokens[1][1]
@@ -62,15 +66,11 @@ def parse_and_execute(tokens):
         operand1 = tokens[1][1]
         operand2 = tokens[2][1]
         result_identifier = tokens[3][1]
-
         value1 = resolve_value(operand1)
         value2 = resolve_value(operand2)
-
         if isinstance(value1, str) or isinstance(value2, str):
-            result = str(value1) + str(value2)
-        else:
-            result = value1 + value2
-
+            raise TypeError("Cannot perform addition with string values.")
+        result = value1 + value2
         memory[result_identifier] = result
 
     elif command == 'SUBTRACT':
@@ -120,8 +120,9 @@ def parse_and_execute(tokens):
         memory[identifier] = resolve_value(value)
 
     elif command == 'PRINT':
-        identifier = tokens[1][1]
-        print(memory.get(identifier, "Undefined"))
+        value = tokens[1][1]
+        resolved_value = resolve_value(value)
+        print(resolved_value)
 
     elif command == 'JOIN':
         value1 = tokens[1][1]
@@ -135,33 +136,33 @@ def parse_and_execute(tokens):
         memory[result_identifier] = result
 
     elif command == 'INPUT':
-        prompt_message = resolve_value(tokens[1][1])
+        prompt = tokens[1][1]
         identifier = tokens[2][1]
-        user_input = input(prompt_message)  # Get input from the user
+        # Remove surrounding quotes from the prompt string
+        if prompt.startswith('"') and prompt.endswith('"'):
+            prompt = prompt[1:-1]
+        user_input = input(prompt + " ")  # Adding a space for better readability
         memory[identifier] = user_input
-
-    elif command == 'TONUMBER':
-        identifier = tokens[1][1]
-        result_identifier = tokens[2][1]
-        value = resolve_value(identifier)
-        try:
-            result = float(value)
-        except ValueError:
-            raise ValueError(f"Cannot convert {value} to a number.")
-        memory[result_identifier] = result
 
     elif command == 'TOSTRING':
         identifier = tokens[1][1]
         result_identifier = tokens[2][1]
-        value = resolve_value(identifier)
-        try:
-            result = str(value)
-        except ValueError:
-            raise ValueError(f"Cannot convert {value} to a number.")
-        memory[result_identifier] = result
+        memory[result_identifier] = str(memory.get(identifier, ""))
+
+    elif command == 'TONUMBER':
+        identifier = tokens[1][1]
+        result_identifier = tokens[2][1]
+        memory[result_identifier] = float(memory.get(identifier, 0))
 
 
-# Step 3: Integrate multi-line code processing
+# Function to run code from a file
+def run_code_from_file(filename):
+    with open(filename, 'r') as file:
+        code = file.read()
+    run_code(code)
+
+
+# Function to run code directly from a string
 def run_code(code):
     lines = code.splitlines()
     lines = [line for line in lines if line.strip()]
@@ -172,9 +173,15 @@ def run_code(code):
             parse_and_execute(tokens)
 
 
-# Example usage with comments
-code = """
-// Put any code here
-"""
+# Main entry point when running from the command line
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        # Read the script file provided as an argument
+        script_file = sys.argv[1]
+        run_code_from_file(script_file)
+    else:
+        # Example usage with embedded code
+        code = """
 
-run_code(code)
+        """
+        run_code(code)
