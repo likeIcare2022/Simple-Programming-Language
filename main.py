@@ -150,6 +150,16 @@ def parse_and_execute(tokens):
             raise ValueError(f"Cannot convert {value} to a number.")
         memory[result_identifier] = result
 
+    elif command == 'TOSTRING':
+        identifier = tokens[1][1]
+        result_identifier = tokens[2][1]
+        value = resolve_value(identifier)
+        try:
+            result = str(value)
+        except ValueError:
+            raise ValueError(f"Cannot convert {value} to a number.")
+        memory[result_identifier] = result
+
 
 # Step 3: Integrate multi-line code processing
 def run_code(code):
@@ -164,17 +174,7 @@ def run_code(code):
 
 # Example usage with comments
 code = """
-INPUT "Enter a number: " s1
-INPUT "Enter a number: " s2
-TONUMBER s1 s1
-TONUMBER s2 s2
-ADD s1 s2 s3
-JOIN "The result of " s1 s4
-JOIN s4 " and " s4
-JOIN s4 s2 s4
-JOIN s4 " is " s4
-JOIN s4 s3 s4
-PRINT s4
+// Put any code here
 """
 
 run_code(code)
