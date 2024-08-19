@@ -1,13 +1,12 @@
 import re
 
 
-# Step 1: Tokenization function with comment handling
 def tokenize(line):
     # Remove comments from the line
     line = re.sub(r'//.*', '', line)
 
     token_specification = [
-        ('KEYWORD', r'\b(LOAD|STORE|PRINT|ADD|JOIN)\b'),  # Keywords including JOIN
+        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|TONUMBER|INPUT)\b'),  # Added math operations
         ('STRING', r'"[^"]*"'),  # String literals
         ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integer or floating-point numbers
         ('IDENTIFIER', r'\b[a-zA-Z_]\w*\b'),  # Identifiers
@@ -46,22 +45,79 @@ def parse_and_execute(tokens):
 
     command = tokens[0][1]
 
+    def resolve_value(value):
+        """ Resolve a value which can be a literal or an identifier. """
+        if value.startswith('"') and value.endswith('"'):
+            return value[1:-1]  # Remove surrounding quotes and return as string
+        if value.isdigit() or (value[0] == '-' and value[1:].isdigit()):
+            return float(value)  # Convert numeric literals to float
+        return memory.get(value, 0)  # Default to 0 if identifier not found
+
     if command == 'LOAD':
         value = tokens[1][1]
         identifier = tokens[2][1]
-        memory[identifier] = value
+        memory[identifier] = resolve_value(value)
 
     elif command == 'ADD':
-        identifier1 = tokens[1][1]
-        identifier2 = tokens[2][1]
-        identifier3 = tokens[3][1]
-        result = float(memory[identifier1]) + float(memory[identifier2])
-        memory[identifier3] = result
+        operand1 = tokens[1][1]
+        operand2 = tokens[2][1]
+        result_identifier = tokens[3][1]
+
+        value1 = resolve_value(operand1)
+        value2 = resolve_value(operand2)
+
+        if isinstance(value1, str) or isinstance(value2, str):
+            result = str(value1) + str(value2)
+        else:
+            result = value1 + value2
+
+        memory[result_identifier] = result
+
+    elif command == 'SUBTRACT':
+        operand1 = tokens[1][1]
+        operand2 = tokens[2][1]
+        result_identifier = tokens[3][1]
+
+        value1 = resolve_value(operand1)
+        value2 = resolve_value(operand2)
+
+        if isinstance(value1, str) or isinstance(value2, str):
+            raise TypeError("Cannot perform subtraction on strings.")
+        result = value1 - value2
+        memory[result_identifier] = result
+
+    elif command == 'MULTIPLY':
+        operand1 = tokens[1][1]
+        operand2 = tokens[2][1]
+        result_identifier = tokens[3][1]
+
+        value1 = resolve_value(operand1)
+        value2 = resolve_value(operand2)
+
+        if isinstance(value1, str) or isinstance(value2, str):
+            raise TypeError("Cannot perform multiplication on strings.")
+        result = value1 * value2
+        memory[result_identifier] = result
+
+    elif command == 'DIVIDE':
+        operand1 = tokens[1][1]
+        operand2 = tokens[2][1]
+        result_identifier = tokens[3][1]
+
+        value1 = resolve_value(operand1)
+        value2 = resolve_value(operand2)
+
+        if isinstance(value1, str) or isinstance(value2, str):
+            raise TypeError("Cannot perform division on strings.")
+        if value2 == 0:
+            raise ZeroDivisionError("Division by zero is not allowed")
+        result = value1 / value2
+        memory[result_identifier] = result
 
     elif command == 'STORE':
         identifier = tokens[1][1]
         value = tokens[2][1]
-        memory[identifier] = value
+        memory[identifier] = resolve_value(value)
 
     elif command == 'PRINT':
         identifier = tokens[1][1]
@@ -70,20 +126,29 @@ def parse_and_execute(tokens):
     elif command == 'JOIN':
         value1 = tokens[1][1]
         value2 = tokens[2][1]
-        identifier = tokens[3][1]
+        result_identifier = tokens[3][1]
 
-        if value1 in memory:
-            value1 = memory[value1]
-        if value2 in memory:
-            value2 = memory[value2]
+        value1 = resolve_value(value1)
+        value2 = resolve_value(value2)
 
-        if value1.startswith('"') and value1.endswith('"'):
-            value1 = value1[1:-1]
-        if value2.startswith('"') and value2.endswith('"'):
-            value2 = value2[1:-1]
+        result = str(value1) + str(value2)
+        memory[result_identifier] = result
 
-        result = value1 + value2
-        memory[identifier] = result
+    elif command == 'INPUT':
+        prompt_message = resolve_value(tokens[1][1])
+        identifier = tokens[2][1]
+        user_input = input(prompt_message)  # Get input from the user
+        memory[identifier] = user_input
+
+    elif command == 'TONUMBER':
+        identifier = tokens[1][1]
+        result_identifier = tokens[2][1]
+        value = resolve_value(identifier)
+        try:
+            result = float(value)
+        except ValueError:
+            raise ValueError(f"Cannot convert {value} to a number.")
+        memory[result_identifier] = result
 
 
 # Step 3: Integrate multi-line code processing
@@ -99,13 +164,17 @@ def run_code(code):
 
 # Example usage with comments
 code = """
-LOAD 3 s1
-LOAD "Hello" s2
-JOIN s1 s2 s3
-PRINT s3
-JOIN "Hello" "4" s4
+INPUT "Enter a number: " s1
+INPUT "Enter a number: " s2
+TONUMBER s1 s1
+TONUMBER s2 s2
+ADD s1 s2 s3
+JOIN "The result of " s1 s4
+JOIN s4 " and " s4
+JOIN s4 s2 s4
+JOIN s4 " is " s4
+JOIN s4 s3 s4
 PRINT s4
-PRINT s5
 """
 
 run_code(code)
