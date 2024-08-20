@@ -1,16 +1,21 @@
+import os
 import re
 import sys
-import random  # Import the random module for RANDOM command
+import random
 import math
+import time
+import importlib.util
 
+# Dictionary to hold registered commands
+commands = {}
 
 def tokenize(line):
     # Remove comments from the line
     line = re.sub(r'//.*', '', line)
 
     token_specification = [
-        ('KEYWORD', r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM|CLEAR|CEILING|FLOOR|ABS|SQRT)\b'),
-        # Updated keywords
+        ('KEYWORD',
+         r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM|CLEAR|CEILING|FLOOR|ABS|SQRT|EXECCMD|RUN|MYCOMMAND)\b'),
         ('STRING', r'"[^"]*"'),  # String literals
         ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integer or floating-point numbers
         ('IDENTIFIER', r'\b[a-zA-Z_]\w*\b'),  # Identifiers
@@ -38,10 +43,8 @@ def tokenize(line):
 
     return tokens
 
-
 # Memory storage
 memory = {}
-
 
 def resolve_value(value):
     """ Resolve a value which can be a literal or an identifier. """
@@ -52,17 +55,36 @@ def resolve_value(value):
     except ValueError:
         return memory.get(value, 0)  # Return the value from memory if not a number
 
-
 def parse_and_execute(tokens):
     if not tokens:
         return
 
     command = tokens[0][1]
 
+    if command in commands:
+        # Get the function from the commands dictionary and execute it
+        func = commands[command]
+        args = [token[1] for token in tokens[1:]]
+        func(*args)
+        return
+
     if command == 'LOAD':
         value = tokens[1][1]
         identifier = tokens[2][1]
         memory[identifier] = resolve_value(value)
+
+    elif command == 'CALL':
+        func_name = tokens[1][1]
+        args = [resolve_value(token[1]) for token in tokens[2:-1]]
+        result_identifier = tokens[-1][1]
+        if func_name in commands:
+            try:
+                result = commands[func_name](*args)
+                memory[result_identifier] = result
+            except TypeError as e:
+                raise TypeError(f"Error calling function {func_name}: {e}")
+        else:
+            raise RuntimeError(f"Function {func_name} is not registered.")
 
     elif command == 'ADD':
         operand1 = tokens[1][1]
@@ -83,6 +105,17 @@ def parse_and_execute(tokens):
             raise TypeError("Cannot perform sqrts on string values.")
         result = math.sqrt(value1)
         memory[result_identifier] = result
+
+    elif command == 'MEMORY':
+        result_identifier = tokens[1][1]
+        memory[result_identifier] = memory
+
+    elif command == 'WAIT':
+        wait = tokens[1][1]
+        value1 = resolve_value(wait)
+        if isinstance(value1, str):
+            raise TypeError("Cannot wait strings")
+        time.sleep(value1)
 
     elif command == 'ABS':
         operand1 = tokens[1][1]
@@ -182,6 +215,18 @@ def parse_and_execute(tokens):
         user_input = input(prompt + " ")  # Adding a space for better readability
         memory[identifier] = user_input
 
+    elif command == 'RUN':
+        filename = tokens[1][1]
+        filename = filename[1:-1]
+        with open(filename, 'r') as file:
+            code = file.read()
+            exec(code)
+
+    elif command == 'EXECCMD':
+        cmd = tokens[1][1]
+        cmd = cmd[1:-1]
+        os.system(cmd)
+
     elif command == 'TOSTRING':
         identifier = tokens[1][1]
         result_identifier = tokens[2][1]
@@ -209,13 +254,33 @@ def parse_and_execute(tokens):
     elif command == 'CLEAR':
         memory.clear()
 
+    elif command == 'IMPORT':
+        module_name = tokens[1][1]
+        if not module_name.startswith('"') or not module_name.endswith('"'):
+            raise RuntimeError('Module name must be enclosed in double quotes.')
+        module_name = module_name[1:-1]
+        module_path = os.path.join(os.getcwd(), module_name + '.py')
+
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if spec is None:
+            raise RuntimeError('Module specification could not be loaded.')
+
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            raise RuntimeError(f'Error loading module: {e}')
+
+        if not hasattr(module, 'register_commands'):
+            raise RuntimeError(f'Module {module_name} does not have a register_commands function.')
+
+        module.register_commands(commands)
 
 # Function to run code from a file
 def run_code_from_file(filename):
     with open(filename, 'r') as file:
         code = file.read()
     run_code(code)
-
 
 # Function to run code directly from a string
 def run_code(code):
@@ -226,7 +291,6 @@ def run_code(code):
         tokens = tokenize(line)
         if tokens:  # Only process non-empty tokenized lines
             parse_and_execute(tokens)
-
 
 # Main entry point when running from the command line
 if __name__ == '__main__':
