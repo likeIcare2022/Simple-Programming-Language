@@ -15,7 +15,7 @@ def tokenize(line):
 
     token_specification = [
         ('KEYWORD',
-         r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM|CLEAR|CEILING|FLOOR|ABS|SQRT|EXECCMD|RUN|MYCOMMAND)\b'),
+         r'\b(LOAD|PRINT|ADD|SUBTRACT|MULTIPLY|DIVIDE|JOIN|INPUT|TOSTRING|TONUMBER|RANDOM|CLEAR|CEILING|FLOOR|ABS|SQRT|EXECCMD|RUN|WAIT)\b'),
         ('STRING', r'"[^"]*"'),  # String literals
         ('NUMBER', r'\b\d+(\.\d+)?\b'),  # Integer or floating-point numbers
         ('IDENTIFIER', r'\b[a-zA-Z_]\w*\b'),  # Identifiers
